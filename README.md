@@ -56,4 +56,5 @@ Edit in `js/dashboard.js`:
 const CONFIG = {
     updateInterval: 60000, // Change this (milliseconds)
     // ...
+
 };
