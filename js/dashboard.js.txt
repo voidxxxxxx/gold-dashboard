@@ -1,0 +1,331 @@
+// Configuration
+const CONFIG = {
+    updateInterval: 60000, // 60 seconds
+    currencies: {
+        QAR: { rate: 3.64, symbol: 'QR', name: 'Qatari Riyal' },
+        NPR: { rate: 134.50, symbol: 'रू', name: 'Nepali Rupee' }
+    },
+    metals: ['XAU', 'XAG', 'XPT', 'XPD']
+};
+
+// State
+let currentCurrency = 'QAR';
+let priceHistory = [];
+let trendChart, currencyChart;
+let apiKey = localStorage.getItem('goldApiKey') || null;
+let apiProvider = localStorage.getItem('apiProvider') || 'goldapi';
+
+// Simulated base prices (USD per ounce) - fallback when no API
+let basePrices = {
+    XAU: 2850.00,
+    XAG: 32.50,
+    XPT: 950.00,
+    XPD: 950.00
+};
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    initCharts();
+    loadPrices();
+    setInterval(loadPrices, CONFIG.updateInterval);
+    
+    // Check if API key exists
+    if (apiKey) {
+        document.getElementById('api-notice').style.display = 'none';
+    }
+});
+
+// Currency Switching
+function setCurrency(currency) {
+    currentCurrency = currency;
+    document.querySelectorAll('.currency-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+    updateDisplay();
+}
+
+// Load Prices (API or Simulated)
+async function loadPrices() {
+    try {
+        let data;
+        
+        if (apiKey && apiProvider === 'goldapi') {
+            data = await fetchGoldAPI();
+        } else if (apiKey && apiProvider === 'freegold') {
+            data = await fetchFreeGoldAPI();
+        } else {
+            data = simulatePrices();
+        }
+        
+        updatePrices(data);
+        updateHistory(data);
+        updateCharts();
+        document.getElementById('last-update').textContent = 
+            'Last updated: ' + moment().format('HH:mm:ss');
+    } catch (error) {
+        console.error('Error loading prices:', error);
+        // Fallback to simulation
+        const data = simulatePrices();
+        updatePrices(data);
+    }
+}
+
+// Fetch from GoldAPI.io
+async function fetchGoldAPI() {
+    const response = await fetch(
+        `https://www.goldapi.io/api/XAU,XAG,XPT,XPD/USD`, {
+        headers: {
+            'x-access-token': apiKey,
+            'Content-Type': 'application/json'
+        }
+    });
+    const data = await response.json();
+    
+    return {
+        XAU: data[0].price,
+        XAG: data[1].price,
+        XPT: data[2].price,
+        XPD: data[3].price
+    };
+}
+
+// Fetch from FreeGoldPrice.org
+async function fetchFreeGoldAPI() {
+    const response = await fetch(
+        `https://freegoldprice.org/api/v2?key=${apiKey}&action=GSPPJ`
+    );
+    const data = await response.json();
+    
+    return {
+        XAU: data.gold.USD.ask,
+        XAG: data.silver.USD.ask,
+        XPT: data.platinum.USD.ask,
+        XPD: data.palladium.USD.ask
+    };
+}
+
+// Simulate realistic price movements
+function simulatePrices() {
+    const volatility = 0.002; // 0.2% max change
+    
+    Object.keys(basePrices).forEach(metal => {
+        const change = 1 + (Math.random() - 0.5) * volatility * 2;
+        basePrices[metal] *= change;
+    });
+    
+    return { ...basePrices };
+}
+
+// Update Display
+function updatePrices(prices) {
+    const rate = CONFIG.currencies[currentCurrency].rate;
+    const symbol = CONFIG.currencies[currentCurrency].symbol;
+    
+    // Update each metal
+    Object.keys(prices).forEach(metal => {
+        const usdPrice = prices[metal];
+        const localPrice = usdPrice * rate;
+        const gramPrice = localPrice / 31.1035; // Troy ounce to gram
+        const kgPrice = gramPrice * 1000;
+        
+        // Determine element IDs
+        const metalName = metal === 'XAU' ? 'gold' : 
+                         metal === 'XAG' ? 'silver' : 
+                         metal === 'XPT' ? 'platinum' : 'palladium';
+        
+        // Update prices
+        document.getElementById(`${metalName}-price`).textContent = 
+            formatNumber(localPrice);
+        document.getElementById(`${metalName}-symbol`).textContent = symbol;
+        
+        // Update gram/kg for gold and silver
+        if (metalName === 'gold' || metalName === 'silver') {
+            document.getElementById(`${metalName}-gram`).textContent = 
+                symbol + ' ' + formatNumber(gramPrice);
+            document.getElementById(`${metalName}-kg`).textContent = 
+                symbol + ' ' + formatNumber(kgPrice);
+        }
+        
+        // Simulate change (random for demo)
+        const changePercent = (Math.random() - 0.5) * 2;
+        const changeValue = localPrice * (changePercent / 100);
+        const changeEl = document.getElementById(`${metalName}-change`);
+        
+        changeEl.innerHTML = `
+            <span class="change-value ${changePercent >= 0 ? 'positive' : 'negative'}">
+                ${changePercent >= 0 ? '+' : ''}${symbol} ${formatNumber(Math.abs(changeValue))}
+            </span>
+            <span class="change-percent ${changePercent >= 0 ? 'positive' : 'negative'}">
+                (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)
+            </span>
+        `;
+    });
+    
+    // Update gold/silver ratio
+    const ratio = prices.XAU / prices.XAG;
+    document.getElementById('gold-silver-ratio').textContent = ratio.toFixed(2);
+    
+    // Update high/low
+    const goldPrice = prices.XAU * rate;
+    document.getElementById('gold-high').textContent = symbol + ' ' + 
+        formatNumber(goldPrice * 1.02);
+    document.getElementById('gold-low').textContent = symbol + ' ' + 
+        formatNumber(goldPrice * 0.98);
+}
+
+// Update Price History
+function updateHistory(prices) {
+    priceHistory.push({
+        time: moment(),
+        prices: { ...prices }
+    });
+    
+    // Keep last 24 hours (assuming 1 min intervals = 1440 points)
+    if (priceHistory.length > 1440) {
+        priceHistory.shift();
+    }
+}
+
+// Initialize Charts
+function initCharts() {
+    // Trend Chart
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    trendChart = new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Gold',
+                data: [],
+                borderColor: '#FFD700',
+                backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#94a3b8' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8' }
+                }
+            }
+        }
+    });
+    
+    // Currency Comparison Chart
+    const currencyCtx = document.getElementById('currencyChart').getContext('2d');
+    currencyChart = new Chart(currencyCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Gold', 'Silver', 'Platinum', 'Palladium'],
+            datasets: [{
+                label: 'Price',
+                data: [0, 0, 0, 0],
+                backgroundColor: [
+                    'rgba(255, 215, 0, 0.8)',
+                    'rgba(192, 192, 192, 0.8)',
+                    'rgba(229, 228, 226, 0.8)',
+                    'rgba(206, 212, 218, 0.8)'
+                ],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: {
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    ticks: { color: '#94a3b8' }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#94a3b8' }
+                }
+            }
+        }
+    });
+}
+
+// Update Charts
+function updateCharts() {
+    if (priceHistory.length === 0) return;
+    
+    const rate = CONFIG.currencies[currentCurrency].rate;
+    const symbol = CONFIG.currencies[currentCurrency].symbol;
+    
+    // Update trend chart (last 20 points)
+    const recentHistory = priceHistory.slice(-20);
+    trendChart.data.labels = recentHistory.map(h => h.time.format('HH:mm'));
+    trendChart.data.datasets[0].data = recentHistory.map(h => h.prices.XAU * rate);
+    trendChart.update();
+    
+    // Update currency chart
+    const latest = priceHistory[priceHistory.length - 1].prices;
+    currencyChart.data.datasets[0].data = [
+        latest.XAU * rate,
+        latest.XAG * rate,
+        latest.XPT * rate,
+        latest.XPD * rate
+    ];
+    currencyChart.update();
+}
+
+// Format Numbers
+function formatNumber(num) {
+    return num.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+// API Modal Functions
+function showApiSetup() {
+    document.getElementById('api-modal').style.display = 'block';
+    if (apiKey) {
+        document.getElementById('api-key-input').value = apiKey;
+        document.getElementById('api-provider').value = apiProvider;
+    }
+}
+
+function closeApiSetup() {
+    document.getElementById('api-modal').style.display = 'none';
+}
+
+function saveApiKey() {
+    const key = document.getElementById('api-key-input').value.trim();
+    const provider = document.getElementById('api-provider').value;
+    
+    if (key) {
+        apiKey = key;
+        apiProvider = provider;
+        localStorage.setItem('goldApiKey', key);
+        localStorage.setItem('apiProvider', provider);
+        document.getElementById('api-notice').style.display = 'none';
+        closeApiSetup();
+        loadPrices(); // Reload with real data
+        alert('API Key saved! Real-time data will load now.');
+    } else {
+        alert('Please enter a valid API key');
+    }
+}
+
+// Close modal on outside click
+window.onclick = function(event) {
+    const modal = document.getElementById('api-modal');
+    if (event.target === modal) {
+        closeApiSetup();
+    }
+}

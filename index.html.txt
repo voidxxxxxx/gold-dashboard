@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Gold & Precious Metals Dashboard | QAR & NPR</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <span class="gold-icon">◆</span>
+                <h1>GoldTracker Pro</h1>
+            </div>
+            <div class="status">
+                <span class="live-indicator">● LIVE</span>
+                <span id="last-update">Updating...</span>
+            </div>
+        </header>
+
+        <!-- API Configuration Notice -->
+        <div class="api-notice" id="api-notice">
+            <p>⚠️ <strong>Demo Mode:</strong> Showing simulated data. 
+            <a href="#" onclick="showApiSetup()">Add free API key</a> for real-time prices.</p>
+        </div>
+
+        <!-- Currency Toggle -->
+        <div class="currency-toggle">
+            <button class="currency-btn active" onclick="setCurrency('QAR')">
+                🇶🇦 QAR (ريال)
+            </button>
+            <button class="currency-btn" onclick="setCurrency('NPR')">
+                🇳🇵 NPR (रू)
+            </button>
+        </div>
+
+        <!-- Main Price Cards -->
+        <div class="price-grid">
+            <div class="price-card gold">
+                <div class="metal-header">
+                    <h2>Gold</h2>
+                    <span class="symbol">XAU</span>
+                </div>
+                <div class="price-display">
+                    <span class="currency-symbol" id="gold-symbol">QR</span>
+                    <span class="amount" id="gold-price">--</span>
+                    <span class="unit">/oz</span>
+                </div>
+                <div class="price-change" id="gold-change">
+                    <span class="change-value">--</span>
+                    <span class="change-percent">--</span>
+                </div>
+                <div class="additional-prices">
+                    <div class="price-item">
+                        <span>Gram</span>
+                        <strong id="gold-gram">--</strong>
+                    </div>
+                    <div class="price-item">
+                        <span>Kg</span>
+                        <strong id="gold-kg">--</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="price-card silver">
+                <div class="metal-header">
+                    <h2>Silver</h2>
+                    <span class="symbol">XAG</span>
+                </div>
+                <div class="price-display">
+                    <span class="currency-symbol" id="silver-symbol">QR</span>
+                    <span class="amount" id="silver-price">--</span>
+                    <span class="unit">/oz</span>
+                </div>
+                <div class="price-change" id="silver-change">
+                    <span class="change-value">--</span>
+                    <span class="change-percent">--</span>
+                </div>
+                <div class="additional-prices">
+                    <div class="price-item">
+                        <span>Gram</span>
+                        <strong id="silver-gram">--</strong>
+                    </div>
+                    <div class="price-item">
+                        <span>Kg</span>
+                        <strong id="silver-kg">--</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="price-card platinum">
+                <div class="metal-header">
+                    <h2>Platinum</h2>
+                    <span class="symbol">XPT</span>
+                </div>
+                <div class="price-display">
+                    <span class="currency-symbol" id="platinum-symbol">QR</span>
+                    <span class="amount" id="platinum-price">--</span>
+                    <span class="unit">/oz</span>
+                </div>
+                <div class="price-change" id="platinum-change">
+                    <span class="change-value">--</span>
+                    <span class="change-percent">--</span>
+                </div>
+            </div>
+
+            <div class="price-card palladium">
+                <div class="metal-header">
+                    <h2>Palladium</h2>
+                    <span class="symbol">XPD</span>
+                </div>
+                <div class="price-display">
+                    <span class="currency-symbol" id="palladium-symbol">QR</span>
+                    <span class="amount" id="palladium-price">--</span>
+                    <span class="unit">/oz</span>
+                </div>
+                <div class="price-change" id="palladium-change">
+                    <span class="change-value">--</span>
+                    <span class="change-percent">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="charts-section">
+            <div class="chart-container">
+                <h3>Price Trend (24 Hours)</h3>
+                <canvas id="trendChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <h3>Currency Comparison</h3>
+                <canvas id="currencyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Market Summary -->
+        <div class="market-summary">
+            <h3>Market Summary</h3>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <span>Gold/Silver Ratio</span>
+                    <strong id="gold-silver-ratio">--</strong>
+                </div>
+                <div class="summary-item">
+                    <span>24h High (Gold)</span>
+                    <strong id="gold-high">--</strong>
+                </div>
+                <div class="summary-item">
+                    <span>24h Low (Gold)</span>
+                    <strong id="gold-low">--</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Market Status</span>
+                    <strong class="market-open">Open</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exchange Rates -->
+        <div class="exchange-rates">
+            <h3>Exchange Rates (vs USD)</h3>
+            <div class="rate-list">
+                <div class="rate-item">
+                    <span>1 USD =</span>
+                    <strong id="rate-qar">3.64 QAR</strong>
+                </div>
+                <div class="rate-item">
+                    <span>1 USD =</span>
+                    <strong id="rate-npr">134.50 NPR</strong>
+                </div>
+                <div class="rate-item">
+                    <span>1 QAR =</span>
+                    <strong id="rate-qar-npr">36.95 NPR</strong>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Data updates every 60 seconds • Built for Qatar & Nepal Markets</p>
+            <p class="disclaimer">Disclaimer: Prices are indicative and for informational purposes only.</p>
+        </footer>
+    </div>
+
+    <!-- API Setup Modal -->
+    <div id="api-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeApiSetup()">&times;</span>
+            <h2>🔧 API Configuration</h2>
+            <p>To get real-time prices, get a free API key from:</p>
+            <ul>
+                <li><a href="https://www.goldapi.io/" target="_blank">GoldAPI.io</a> (100 free requests/month)</li>
+                <li><a href="https://freegoldprice.org/" target="_blank">FreeGoldPrice.org</a> (Free tier available)</li>
+            </ul>
+            <div class="input-group">
+                <label>Enter API Key:</label>
+                <input type="text" id="api-key-input" placeholder="Paste your API key here">
+                <select id="api-provider">
+                    <option value="goldapi">GoldAPI.io</option>
+                    <option value="freegold">FreeGoldPrice</option>
+                </select>
+                <button onclick="saveApiKey()">Save & Activate</button>
+            </div>
+            <p class="hint">Your API key is stored locally in your browser only.</p>
+        </div>
+    </div>
+
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
